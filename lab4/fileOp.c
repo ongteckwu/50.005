@@ -295,7 +295,7 @@ while(1){
 		while (pent = readdir(directory)) {
 			if (strstr(pent->d_name, reg) != NULL) {
 				if (stat(pent->d_name, &buf) < 0) {
-					perror("Something wrong with reading file %s", pent->d_name);
+					fprintf(stderr, "Something wrong with reading file %s\n", pent->d_name);
 					return EXIT_FAILURE;
 				}
 
