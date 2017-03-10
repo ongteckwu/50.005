@@ -319,7 +319,7 @@ int parse_node_parents(node_t *nodes, int num_nodes) {
  *
  * INELIGIBLE -> READY -> RUNNING -> FINISHED
  *
- * IF INELIGIBLE && parents are done
+ * IF INELIGIBLE && parents are FINISHED
  *  set to READY
  *
  *  IF RUNNING & is done
@@ -376,7 +376,7 @@ int parse_node_status(node_t *nodes, int num_nodes) {
         }
       }
       else if (result > 0) {
-        // node done
+        // line is done
         fprintf(stderr, "line %d done\n", i);
         nodes[i].status = FINISHED;
       }
@@ -419,13 +419,9 @@ int print_process_tree(node_t *nodes, int num_nodes) {
   memcpy(temp_not_visited, num_of_parents_not_visited, num_nodes * sizeof(int));
 
   // populate number of parents not visited
-//  for (int i = 0; i < num_nodes; i++) {
-//    printf("%d ", num_of_parents_not_visited[i]);
-//  }
-//
-//  printf("\n");
 
   while (num_nodes_done < num_nodes) {
+    // num of edges to print for each row
     num_edges_to_print = 0; // reset number of edges to print
     // get nodes with no parents
     for (int i = 0; i < num_nodes; i++) {
@@ -538,7 +534,6 @@ int main(int argc, char *argv[]) {
         // run process
         child_pid = fork();
         if (child_pid == 0) {
-          // child
           // check if stdin and stdout need to be replaced
           int input;
           int output;
