@@ -6,9 +6,26 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <time.h>
+
 #define MAX_INPUT 256
 #define SIZE 1024
+#define STAT_BUFFER_SIZE 100
+#define NAME_SIZE 100
+#define MAX_FILE_COUNT 100000
 
+// struct statwname{
+// 	struct stat stat;
+// 	char name[NAME_SIZE];
+// };
+
+// int timecmpfunc(const void * a, const void * b) {
+// 	return (int) difftime((((struct statwtime *)a)->stat).st_mtime, (((struct statwtime*)b)->stat).st_mtime);
+// }
+
+// int sizecmpfunc(const void * a, const void * b) {
+// 	return (int) (((struct statwtime *)a)->stat).st_size - (((struct statwtime *)b)->stat).st_size;
+// }
 // from the linux kernel
 char *strstrip(char *s) {
 	size_t size;
@@ -53,18 +70,20 @@ int findRecurseDirPrint(const char * dir, const char * regex) {
 	}
 
 	struct dirent * pent;
-	char * name;
 	while (pent = readdir(directory)) {
 		if (strncmp("..", pent->d_name, 2) == 0 || strncmp(".", pent->d_name, 1) == 0) {
 			continue;
 		}
 
-		name = malloc(strlen(pent->d_name) + strlen(dir) + 4);
+		char * name;
+		name = malloc(strlen(pent->d_name) + strlen(dir) + 20);
 		if (strncmp(".", dir, 1) != 0) {
 			strcpy(name, dir);
 			strcat(name, "/");
+			strcat(name, pent->d_name);
 		}	
-		strcat(name, pent->d_name);
+		else 
+			strcpy(name, pent->d_name);
 		if (stat(name, &buf) < 0) {
 			fprintf(stderr, "Something wrong with reading file %s %s\n", dir, name);
 			return -1;
@@ -76,7 +95,7 @@ int findRecurseDirPrint(const char * dir, const char * regex) {
 			if (S_ISDIR(buf.st_mode)) {
 				// print directory
 				printf("%s/\n", name);
-				treePrint(name);
+				recurseDirPrint(name);
 			} else {
 				printf("%s\n", name);
 			}
@@ -92,7 +111,7 @@ int findRecurseDirPrint(const char * dir, const char * regex) {
 	return 0;
 }
 
-int treePrint(const char * dir) {
+int recurseDirPrint(const char * dir) {
 	DIR * directory;
 	struct stat buf;
 
@@ -101,18 +120,20 @@ int treePrint(const char * dir) {
 		return -1;
 	}
 	struct dirent * pent;
-	char * name;
 	while (pent = readdir(directory)) {
 		if (strncmp("..", pent->d_name, 2) == 0 || strncmp(".", pent->d_name, 1) == 0) {
 			continue;
 		}
 
-		name = malloc(strlen(pent->d_name) + strlen(dir) + 4);
+		char * name;
+		name = malloc(strlen(pent->d_name) + strlen(dir) + 20);
 		if (strncmp(".", dir, 1) != 0) {
 			strcpy(name, dir);
 			strcat(name, "/");
+			strcat(name, pent->d_name);
 		}	
-		strcat(name, pent->d_name);
+		else 
+			strcpy(name, pent->d_name);
 		if (stat(name, &buf) < 0) {
 			fprintf(stderr, "Something wrong with reading file %s %s\n", dir, name);
 			return -1;
@@ -134,6 +155,66 @@ int treePrint(const char * dir) {
 	closedir(directory);
 	return 0;
 }
+
+
+int treePrint(const char * dir, int pad, int maxlevel) {
+	DIR * directory;
+	struct stat buf;
+
+	if ((directory = opendir(dir)) == NULL) {
+		fprintf(stderr, "Directory %s does not exist\n", dir);
+		return -1;
+	}
+	struct dirent * pent;
+	char * padding;
+	if (pad > 0) {
+		padding = malloc(pad + 3);
+		memset(padding, ' ', pad);
+		padding[pad] = 0;
+		strcat(padding, "|-");
+	}
+	while (pent = readdir(directory)) {
+		if (strncmp("..", pent->d_name, 2) == 0 || strncmp(".", pent->d_name, 1) == 0) {
+			continue;
+		}
+
+		char * name;
+		name = malloc(strlen(pent->d_name) + strlen(dir) + 20);
+		if (strncmp(".", dir, 1) != 0) {
+			strcpy(name, dir);
+			strcat(name, "/");
+			strcat(name, pent->d_name);
+		}	
+		else 
+			strcpy(name, pent->d_name);
+		if (stat(name, &buf) < 0) {
+			fprintf(stderr, "Something wrong with reading file %s %s\n", dir, name);
+			return -1;
+		}
+		
+		if (pad > 0) {
+			printf("%s%s\n", padding, pent->d_name);
+		} 
+		else { 
+			printf("%s\n", pent->d_name);
+		}
+		// if directory
+		if (S_ISDIR(buf.st_mode) && pad < maxlevel) {
+			// print directory
+			treePrint(name, pad+1, maxlevel);
+		}
+
+		free(name);
+	}
+
+	if (pad > 0) {
+		free(padding);
+	}
+
+	closedir(directory);
+	return 0;
+}
+
 
 int main(){
 
@@ -275,7 +356,7 @@ while(1){
 		           2 - size
 		           3 - name
 	   */
-		int maxFileCount = 100000;
+		int maxFileCount = MAX_FILE_COUNT;
 		int state = 0;
 		int sortedState = 1;
 		int invalidCommand = 0;
@@ -333,6 +414,7 @@ while(1){
 		DIR * directory = opendir(".");
 		struct dirent * pent;
 		int count = 0;
+
 		switch (state) {
 			case 0: {
 				while ((count <= maxFileCount) && (pent = readdir(directory))) {
@@ -342,9 +424,18 @@ while(1){
 				break;
 			}
 			case 1: {
+				struct stat buf;
 				while ((count <= maxFileCount) && (pent = readdir(directory))) {
 					// get property
-					printf("%s\n", pent->d_name);
+					if (stat(pent->d_name, &buf) < 0) {
+						fprintf(stderr, "Something wrong with reading file %s\n", pent->d_name);
+						return EXIT_FAILURE;
+					}
+					char buff[40];
+					struct tm * timeinfo;
+					timeinfo = localtime (&buf.st_mtime);
+					strftime(buff, sizeof(buff), "%a %b %d %H:%M:%S SGT %Y", timeinfo);
+					printf("%-15s Size:%-15jd Last Modified: %s\n", pent->d_name, buf.st_size, buff);
 					count++;
 				}
 				break;
@@ -364,6 +455,77 @@ while(1){
 				}
 				free(namelist);
 				break;
+			}
+			case 3: {
+				if (sortedState == 3) {
+					// name
+					struct stat buf;
+					struct dirent **namelist;
+					int n;
+					n = scandir(".", &namelist, 0, alphasort);
+					if (n < 0) {
+						perror("scandir\n");
+					} else {
+						int i;
+						for (i = 0; i < n; i++) {
+							if (stat(namelist[i]->d_name, &buf) < 0) {
+								fprintf(stderr, "Something wrong with reading file %s\n", namelist[i]->d_name);
+								return EXIT_FAILURE;
+							}
+							char buff[40];
+							struct tm * timeinfo;
+							timeinfo = localtime (&buf.st_mtime);
+							strftime(buff, sizeof(buff), "%a %b %d %H:%M:%S SGT %Y", timeinfo);
+							printf("%-15s Size:%-15jd Last Modified: %s\n", namelist[i]->d_name, buf.st_size, buff);
+							free(namelist[i]);
+						}
+					}
+					free(namelist);
+					break;
+				}
+				// else
+				// struct statwname * buffers;
+				// buffers = malloc(sizeof(statwname) * STAT_BUFFER_SIZE);
+				// int current_buffer_size = STAT_BUFFER_SIZE;
+				// struct statwname * current_buffer = buffers;
+				// while ((count <= maxFileCount) && (pent = readdir(directory))) {
+				// 	if (count >= STAT_BUFFER_SIZE) {
+				// 		buffers = realloc(buffers, sizeof(buffers) + sizeof(statwname) * STAT_BUFFER_SIZE);
+				// 	}
+					
+				// 	current_buffer = buffers + count;
+				// 	// get property
+				// 	if (stat(pent->d_name, &current_buffer->stat) < 0) {
+				// 		fprintf(stderr, "Something wrong with reading file %s\n", pent->d_name);
+				// 		return EXIT_FAILURE;
+				// 	}
+				// 	strcpy(current_buffer->name, pent->d_name);
+				// 	count++;
+				// }
+
+				// // sort
+				// switch (sortedState) {
+				// 	case 1: {
+				// 		// time
+				// 		qsort(buffers, count, sizeof(statwtime), timecmpfunc);
+				// 		break;
+				// 	}
+				// 	case 2: {
+				// 		qsort(buffers, count, sizeof(statwtime), sizecmpfunc);
+				// 		break;
+				// 	}
+				// }
+
+				// for (int i = 0; i < count; i++) {
+				// 	char buff[40];
+				// 	struct tm * timeinfo;
+				// 	timeinfo = localtime (&current_buffer.st_mtime);
+				// 	strftime(buff, sizeof(buff), "%a %b %d %H:%M:%S SGT %Y", timeinfo);
+				// 	printf("%-15s Size:%-15jd Last Modified: %s\n", pent->d_name, buf.st_size, buff);
+				// }
+
+				// free(buffers);
+				// break;
 			}
 		}
 
@@ -396,7 +558,7 @@ while(1){
 	{
 	//Implement your code to handle tree here
 	/*There are many cases to handle in this part*/
-
+	treePrint(".", 0, 10000);
 	/*
 	//tree
 	//tree 1 
