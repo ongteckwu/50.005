@@ -288,7 +288,27 @@ while(1){
  ptr=strstr(command,find);
 	if(ptr!=NULL)
 	{
+		struct stat buf;
+		char * reg = strstrip(ptr + strlen(find) + 1);
+		DIR * directory = opendir(".");
+		struct dirent * pent;
+		while (pent = readdir(directory)) {
+			if (strstr(pent->d_name, reg) != NULL) {
+				if (stat(pent->d_name, &buf) < 0) {
+					perror("Something wrong with reading file %s", pent->d_name);
+					return EXIT_FAILURE;
+				}
+
+				// if directory
+				if (S_ISDIR(buf.st_mode)) {
+
+				}
+
+			}
+		}
+
 	//Implement your code to handle find here
+
 	}
 //--------------------------------------------------------------------
 //tree Case #6
