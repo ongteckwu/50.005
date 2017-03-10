@@ -1,11 +1,11 @@
 #include <stdio.h>
-#include<stdlib.h>
-#include<errno.h>
-#include<unistd.h>
-#include<string.h>
-#include<ctype.h>
-#include<dirent.h>
-//#include<sys/stat.h >
+#include <stdlib.h>
+#include <errno.h>
+#include <unistd.h>
+#include <string.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #define MAX_INPUT 256
 #define SIZE 1024
 
@@ -33,12 +33,106 @@ char *strstrip(char *s) {
 }
 
 int isDigitString(char * str) {
-	for (int i = 0; str[i] != 0; i++) {
+	int i;
+	for (i = 0; str[i] != 0; i++) {
 		if (!isdigit(str[i])) {
 			return 0;
 		}
 	}
 	return 1;
+}
+
+int findRecurseDirPrint(const char * dir, const char * regex) {
+	DIR * directory;
+	struct stat buf;
+
+	// printf("DIR %s\n", dir);
+	if ((directory = opendir(dir)) == NULL) {
+		fprintf(stderr, "Directory %s does not exist\n", dir);
+		return -1;
+	}
+
+	struct dirent * pent;
+	char * name;
+	while (pent = readdir(directory)) {
+		if (strncmp("..", pent->d_name, 2) == 0 || strncmp(".", pent->d_name, 1) == 0) {
+			continue;
+		}
+
+		name = malloc(strlen(pent->d_name) + strlen(dir) + 4);
+		if (strncmp(".", dir, 1) != 0) {
+			strcpy(name, dir);
+			strcat(name, "/");
+		}	
+		strcat(name, pent->d_name);
+		if (stat(name, &buf) < 0) {
+			fprintf(stderr, "Something wrong with reading file %s %s\n", dir, name);
+			return -1;
+		}
+
+		if (strstr(pent->d_name, regex) != NULL) {
+			
+			// if directory
+			if (S_ISDIR(buf.st_mode)) {
+				// print directory
+				printf("%s/\n", name);
+				treePrint(name);
+			} else {
+				printf("%s\n", name);
+			}
+		}
+		else if (S_ISDIR(buf.st_mode)) {
+			findRecurseDirPrint(name, regex);
+		}
+
+		free(name);
+	}
+
+	closedir(directory);
+	return 0;
+}
+
+int treePrint(const char * dir) {
+	DIR * directory;
+	struct stat buf;
+
+	if ((directory = opendir(dir)) == NULL) {
+		fprintf(stderr, "Directory %s does not exist\n", dir);
+		return -1;
+	}
+	struct dirent * pent;
+	char * name;
+	while (pent = readdir(directory)) {
+		if (strncmp("..", pent->d_name, 2) == 0 || strncmp(".", pent->d_name, 1) == 0) {
+			continue;
+		}
+
+		name = malloc(strlen(pent->d_name) + strlen(dir) + 4);
+		if (strncmp(".", dir, 1) != 0) {
+			strcpy(name, dir);
+			strcat(name, "/");
+		}	
+		strcat(name, pent->d_name);
+		if (stat(name, &buf) < 0) {
+			fprintf(stderr, "Something wrong with reading file %s %s\n", dir, name);
+			return -1;
+		}
+			
+		// if directory
+		if (S_ISDIR(buf.st_mode)) {
+			// print directory
+			printf("%s/\n", name);
+			//treePrint
+		} else {
+			printf("%s\n", name);
+		}
+
+		free(name);
+	}
+
+
+	closedir(directory);
+	return 0;
 }
 
 int main(){
@@ -262,7 +356,8 @@ while(1){
 				if (n < 0) {
 					perror("scandir\n");
 				} else {
-					for (int i = 0; i < n; i++) {
+					int i;
+					for (i = 0; i < n; i++) {
 						printf("%s\n", namelist[i]->d_name);
 						free(namelist[i]);
 					}
@@ -288,24 +383,8 @@ while(1){
  ptr=strstr(command,find);
 	if(ptr!=NULL)
 	{
-		struct stat buf;
 		char * reg = strstrip(ptr + strlen(find) + 1);
-		DIR * directory = opendir(".");
-		struct dirent * pent;
-		while (pent = readdir(directory)) {
-			if (strstr(pent->d_name, reg) != NULL) {
-				if (stat(pent->d_name, &buf) < 0) {
-					fprintf(stderr, "Something wrong with reading file %s\n", pent->d_name);
-					return EXIT_FAILURE;
-				}
-
-				// if directory
-				if (S_ISDIR(buf.st_mode)) {
-
-				}
-
-			}
-		}
+		findRecurseDirPrint(".", reg);
 
 	//Implement your code to handle find here
 
