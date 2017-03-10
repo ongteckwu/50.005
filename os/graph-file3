@@ -1,0 +1,5 @@
+echo cheese:1:stdin:cheese.txt
+echo pork:2 3:stdin:pork.txt
+cat:4:pork.txt:meat.txt
+cat:4:cheese.txt:dairy.txt
+cat meat.txt dairy.txt:none:stdin:loser.txt
